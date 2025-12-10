@@ -2,7 +2,8 @@
  * API client for CrowdStrike AI Pipeline Health Monitor
  */
 
-const API_BASE = '/api';
+// In development, connect directly to backend. In production, use relative path
+const API_BASE = import.meta.env.DEV ? 'http://localhost:8000' : '';
 
 export interface HealthCheck {
     id: number;
@@ -99,12 +100,19 @@ export interface CostSummary {
 
 // API Functions
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const headers: Record<string, string> = {};
+
+    // Only add Content-Type for requests with a body
+    if (options?.method && options.method !== 'GET' && options.body) {
+        headers['Content-Type'] = 'application/json';
+    }
+
     const response = await fetch(`${API_BASE}${endpoint}`, {
-        headers: {
-            'Content-Type': 'application/json',
-            ...options?.headers,
-        },
         ...options,
+        headers: {
+            ...headers,
+            ...(options?.headers as Record<string, string> || {}),
+        },
     });
 
     if (!response.ok) {

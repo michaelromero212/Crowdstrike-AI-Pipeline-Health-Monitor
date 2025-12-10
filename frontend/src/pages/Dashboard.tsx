@@ -21,6 +21,7 @@ const Dashboard: React.FC = () => {
     const [incidentSummary, setIncidentSummary] = useState<{ total: number; by_status: Record<string, number> } | null>(null);
     const [runningChecks, setRunningChecks] = useState<Set<number>>(new Set());
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [latencyHistory, setLatencyHistory] = useState<Array<{ timestamp: string; value: number }>>([]);
 
@@ -31,14 +32,17 @@ const Dashboard: React.FC = () => {
 
     const fetchData = useCallback(async () => {
         try {
+            console.log('Fetching data from API...');
             const [checks, incs, summary] = await Promise.all([
                 getHealthChecks(),
                 getIncidents(),
                 getIncidentsSummary()
             ]);
+            console.log('Received health checks:', checks);
             setHealthChecks(checks);
             setIncidents(incs.slice(0, 5));
             setIncidentSummary(summary);
+            setError(null);
 
             // Extract latency history from checks
             const latencyCheck = checks.find(c => c.check_type === 'latency');
@@ -52,8 +56,10 @@ const Dashboard: React.FC = () => {
                     return updated;
                 });
             }
-        } catch (error) {
-            console.error('Failed to fetch data:', error);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            console.error('Failed to fetch data:', errorMessage, err);
+            setError(`Failed to connect to backend: ${errorMessage}`);
         } finally {
             setLoading(false);
         }
@@ -156,6 +162,19 @@ const Dashboard: React.FC = () => {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
                 <div className="spinner" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '400px', gap: '16px' }}>
+                <div style={{ color: '#EF4444', fontSize: '18px' }}>⚠️ Connection Error</div>
+                <div style={{ color: '#94A3B8', fontSize: '14px', maxWidth: '400px', textAlign: 'center' }}>{error}</div>
+                <button className="btn btn-primary" onClick={fetchData}>Retry Connection</button>
+                <div style={{ color: '#64748B', fontSize: '12px', marginTop: '8px' }}>
+                    Make sure the backend is running at http://localhost:8000
+                </div>
             </div>
         );
     }
