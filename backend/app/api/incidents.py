@@ -115,6 +115,45 @@ async def list_incidents(
     ]
 
 
+@router.get("/incidents/summary")
+async def get_incidents_summary(db: Session = Depends(get_db)):
+    """
+    Get summary statistics for incidents.
+    """
+    from sqlalchemy import func
+    
+    total = db.query(func.count(Incident.id)).scalar()
+    
+    by_status = dict(
+        db.query(Incident.status, func.count(Incident.id))
+        .group_by(Incident.status)
+        .all()
+    )
+    
+    by_severity = dict(
+        db.query(Incident.severity, func.count(Incident.id))
+        .group_by(Incident.severity)
+        .all()
+    )
+    
+    # Recent incidents (last 24 hours)
+    from datetime import timedelta
+    recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+    recent_count = (
+        db.query(func.count(Incident.id))
+        .filter(Incident.triggered_at >= recent_cutoff)
+        .scalar()
+    )
+    
+    return {
+        "total": total,
+        "by_status": {k.value: v for k, v in by_status.items()},
+        "by_severity": {k.value: v for k, v in by_severity.items()},
+        "last_24_hours": recent_count,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
 @router.get("/incidents/{incident_id}", response_model=IncidentResponse)
 async def get_incident(incident_id: int, db: Session = Depends(get_db)):
     """
@@ -336,40 +375,4 @@ async def get_remediation_audit(limit: int = Query(default=100, le=500)):
     return remediator.get_audit_log(limit)
 
 
-@router.get("/incidents/summary")
-async def get_incidents_summary(db: Session = Depends(get_db)):
-    """
-    Get summary statistics for incidents.
-    """
-    from sqlalchemy import func
-    
-    total = db.query(func.count(Incident.id)).scalar()
-    
-    by_status = dict(
-        db.query(Incident.status, func.count(Incident.id))
-        .group_by(Incident.status)
-        .all()
-    )
-    
-    by_severity = dict(
-        db.query(Incident.severity, func.count(Incident.id))
-        .group_by(Incident.severity)
-        .all()
-    )
-    
-    # Recent incidents (last 24 hours)
-    from datetime import timedelta
-    recent_cutoff = datetime.utcnow() - timedelta(hours=24)
-    recent_count = (
-        db.query(func.count(Incident.id))
-        .filter(Incident.triggered_at >= recent_cutoff)
-        .scalar()
-    )
-    
-    return {
-        "total": total,
-        "by_status": {k.value: v for k, v in by_status.items()},
-        "by_severity": {k.value: v for k, v in by_severity.items()},
-        "last_24_hours": recent_count,
-        "timestamp": datetime.utcnow().isoformat()
-    }
+
