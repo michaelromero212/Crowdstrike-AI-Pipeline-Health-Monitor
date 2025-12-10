@@ -1,209 +1,103 @@
 # CrowdStrike AI Pipeline Health Monitor
 
-A demo-ready AI pipeline health monitoring application showcasing ML/LLM infrastructure monitoring, automated remediation, and cost optimization. Designed for interview demonstrations and production-minded engineering practices.
+> **Proactive Health Monitoring, Automated Remediation, and Cost Optimization for Mission-Critical AI Systems**
 
-![Dashboard Preview](docs/dashboard-preview.png)
+![Project Banner](docs/images/dashboard.png)
 
-## Features
+## Overview for Production Systems
 
-- **Health Checks**: Continuous monitoring of ML pipeline latency, correctness, drift, and resource utilization
-- **Auto-Remediation**: Configurable remediation strategies with dry-run support
-- **Incident Management**: Track incidents, remediation attempts, and resolution history
-- **Infrastructure Analysis**: Multi-cloud metrics simulation (AWS/GCP/OCI)
-- **Rightsizing Recommendations**: Cost optimization with actionable recommendations
-- **Interactive Dashboard**: React + Plotly visualizations with CrowdStrike-inspired design
+In high-stakes environments like CrowdStrike's production systems, AI model reliability is non-negotiable. The **AI Pipeline Health Monitor** is designed to provide a unified, single-pane-of-glass view into the structural integrity of deployed ML models.
 
-## Quick Start
+Unlike traditional infrastructure monitoring (CPU/Memory), this system focuses on **model-specific signals**:
+*   **Inference Latency**: Automatically detects regression in P99 latency.
+*   **Drift Detection**: Uses statistical tests (KS-test) to identify input data distribution shifts.
+*   **Correctness Checks**: Validates model output against ground truth or confidence thresholds.
 
-### Using Docker Compose (Recommended)
+Crucially, it implements **Automated Remediation**, reducing the "biological toll" on on-call engineers by automatically attempting self-healing strategies (restart, cache clear, rollback) before paging a human.
 
+## Dashboard Tour
+
+### 1. Unified Health Dashboard
+The central command center provides real-time status of all critical models. It aggregates passing/failing checks and visualizes latency trends over time.
+
+![Dashboard Screenshot](docs/images/dashboard.png)
+
+**Key Insights:**
+*   **Health Cards**: Instant Red/Green status for distinct failure modes (Latency, Drift, Correctness).
+*   **Live Metrics**: Real-time visualization of inference performance.
+*   **One-Click Actions**: Manually trigger health checks or clear system state directly from the UI.
+
+### 2. Multi-Cloud Infrastructure & Rightsizing
+A detailed view of the underlying compute resources across AWS, GCP, and OCI simulation. 
+
+![Infrastructure Screenshot](docs/images/infrastructure.png)
+
+**Value for Engineering:**
+*   **Rightsizing Recommendations**: Automatically analyzes utilization to suggest cost-saving instance downgrades.
+*   **Cost Analysis**: Estimated hourly and monthly burn rates by provider.
+*   **Utilization Heatmap**: Quickly identify idle or over-provisioned resources.
+
+### 3. Incident Management & Remediation
+When a health check fails, an incident is automatically created. This view tracks the lifecycle of that alert.
+
+![Incidents Screenshot](docs/images/incidents.png)
+
+**Automated Ops:**
+*   **Auto-Creation**: Incidents are generated immediately upon check failure (as shown in the screenshot with "Threat Detection Model Latency").
+*   **Severity Grading**: Criticality is automatically assigned based on the failing check type (e.g., Correctness = Critical, Latency = High).
+*   **Remediation History**: precise audit trail of automated actions taken (e.g., "Restarted Service").
+
+---
+
+## Technical Architecture & Stack
+
+This project maps to a modern, scalable production stack suitable for high-volume enterprise environments.
+
+### Backend (Python/FastAPI)
+*   **FastAPI**: High-performance async web framework.
+*   **SQLAlchemy**: Robust ORM for reliable database interactions (SQLite for demo, PostgreSQL ready).
+*   **Prometheus**: Exporting metrics for observability integration.
+*   **Pandas/SciPy**: Used for statistical drift detection and data analysis.
+
+### Frontend (React/TypeScript)
+*   **Vite**: Next-generation frontend tooling for instant dev server start.
+*   **TypeScript**: Type-safe development for maintainable codebases.
+*   **Plotly.js**: Interactive, data-dense charting library.
+*   **CrowdStrike Theme**: Custom CSS implementation matching enterprise design systems.
+
+### Ops & Deployment
+*   **Docker**: Fully containerized services for consistent deployment.
+*   **Docker Compose**: Orchestration for local development and demo environments.
+*   **REST API**: Fully documented Open API (Swagger) interface.
+
+---
+
+## Quick Start (Demo Mode)
+
+**1. Clone and Setup**
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/Crowdstrike-AI-Pipeline-Health-Monitor.git
+git clone https://github.com/michaelromero212/Crowdstrike-AI-Pipeline-Health-Monitor.git
 cd Crowdstrike-AI-Pipeline-Health-Monitor
-
-# Start all services
-docker-compose up --build
-
-# Open the dashboard
-open http://localhost:3000
+cp infra/localsample.env backend/.env
 ```
 
-### Local Development
-
-**Backend:**
+**2. Start Services**
 ```bash
+# Terminal 1: Backend
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
-```
 
-**Frontend:**
-```bash
+# Terminal 2: Frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-## Demo Walkthrough
+**3. Access Dashboard**
+Open [http://localhost:3000](http://localhost:3000)
 
-### 5-Minute Demo Script
-
-1. **Show Healthy State** (1 min)
-   - Open dashboard at http://localhost:3000
-   - Point out all health checks passing (green indicators)
-   - Show the latency trend chart
-
-2. **Inject Failure** (1 min)
-   ```bash
-   python scripts/inject_failure.py --type latency --severity high
-   ```
-   - Click "Run All Checks" on dashboard
-   - Observe failing check and incident creation
-
-3. **Demonstrate Remediation** (1 min)
-   - Navigate to Incidents tab
-   - Select the incident
-   - Click "Dry Run" to preview remediation
-   - Click "Restart Service" to remediate
-
-4. **Show Infrastructure View** (1 min)
-   - Switch to Infrastructure tab
-   - Highlight multi-cloud metrics
-   - Show rightsizing opportunities table
-   - Point out potential monthly savings
-
-5. **Verify Recovery** (1 min)
-   ```bash
-   python scripts/inject_failure.py --clear
-   ```
-   - Run checks again, show all passing
-   - Incident status changes to "Resolved"
-
-## Architecture
-
-```
-┌─────────────────┐     ┌─────────────────┐
-│  React Frontend │────▶│  FastAPI Backend │
-│  (Plotly.js)    │     │  (Python 3.11)   │
-└─────────────────┘     └────────┬─────────┘
-                                 │
-        ┌────────────────────────┼────────────────────────┐
-        │                        │                        │
-        ▼                        ▼                        ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│ Health Checker │     │ Auto-Remediator│     │Cloud Ingestor │
-│ - Latency      │     │ - Restart      │     │ - AWS metrics │
-│ - Correctness  │     │ - Clear Cache  │     │ - GCP metrics │
-│ - Drift (KS)   │     │ - Scale Hint   │     │ - OCI metrics │
-│ - Resources    │     │ - Rollback     │     └───────────────┘
-└───────────────┘     └───────────────┘
-        │                        │
-        ▼                        ▼
-┌─────────────────────────────────────────┐
-│            SQLite Database              │
-│  - health_checks, check_runs            │
-│  - incidents, remediation_attempts      │
-│  - instance_metrics, volumes            │
-└─────────────────────────────────────────┘
-```
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/healthchecks` | GET | List all configured health checks |
-| `/healthchecks/run` | POST | Run a specific health check |
-| `/healthchecks/run-all` | POST | Run all enabled health checks |
-| `/incidents` | GET | List incidents with filtering |
-| `/remediate` | POST | Trigger remediation for an incident |
-| `/metrics` | GET | Prometheus metrics endpoint |
-| `/infrastructure/summary` | GET | Multi-cloud infrastructure summary |
-| `/rightsizing/opportunities` | GET | List rightsizing recommendations |
-| `/inject-failure` | POST | Inject failure for demo |
-
-## Tech Stack
-
-- **Backend**: Python 3.11, FastAPI, SQLAlchemy, Prometheus Client
-- **Frontend**: React 18, TypeScript, Plotly.js, Vite
-- **Database**: SQLite (demo) / PostgreSQL (production)
-- **Container**: Docker, Docker Compose
-- **Analysis**: NumPy, SciPy (KS-test for drift detection)
-
-## Configuration
-
-Copy the environment template and customize:
-
-```bash
-cp infra/localsample.env .env
-```
-
-Key configuration options:
-- `DATABASE_URL`: Database connection string
-- `LATENCY_THRESHOLD_MS`: Health check latency threshold
-- `MAX_REMEDIATION_RETRIES`: Auto-remediation retry limit
-- `SLACK_WEBHOOK_URL`: (Optional) Slack alerting
-
-## Testing
-
-```bash
-# Backend tests
-cd backend
-pytest tests/ -v
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-## CrowdStrike Alignment
-
-This project demonstrates skills relevant to the Infrastructure Optimization Engineer role:
-
-| Job Requirement | Project Feature |
-|----------------|-----------------|
-| Analyze infrastructure utilization | Multi-cloud metrics ingestor |
-| Monitoring, analysis, and reporting | Health checks + Plotly dashboards |
-| Scripts for analysis & automation | Demo scripts + remediation logic |
-| Infrastructure optimization | Rightsizing recommendation engine |
-| Incident response | Incident management + auto-remediation |
-| Multi-cloud experience | AWS/GCP/OCI metric simulation |
-| Containerization & K8s | Docker Compose + K8s-style configs |
-| DB & SQL proficiency | SQLite + example queries |
-
-## Project Structure
-
-```
-Crowdstrike-AI-Pipeline-Health-Monitor/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI application
-│   │   ├── db.py                # Database models
-│   │   ├── metrics.py           # Prometheus exporter
-│   │   ├── api/                 # API routes
-│   │   └── services/            # Business logic
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx              # Main component
-│   │   ├── pages/               # Dashboard, Infrastructure, Incidents
-│   │   ├── components/          # Reusable components
-│   │   └── styles/              # CrowdStrike theme
-│   └── Dockerfile
-├── scripts/
-│   ├── inject_failure.py        # Failure injection CLI
-│   └── demo_run.sh              # Interactive demo script
-├── examples/queries/            # SQL analysis examples
-├── optimization_playbooks/      # Report templates
-└── docker-compose.yml
-```
-
-## License
-
-MIT License - Demo/Interview Project
-
----
-
-Built for CrowdStrike Infrastructure Optimization Engineer interview demonstration.
+**4. Run Demo Scenario**
+Use the **Demo Controls** on the dashboard to inject failures (e.g., "Inject Latency") and watch the system detect and respond.
