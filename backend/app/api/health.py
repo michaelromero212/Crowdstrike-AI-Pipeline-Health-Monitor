@@ -146,41 +146,22 @@ async def run_health_check(request: RunCheckRequest, db: Session = Depends(get_d
     else:
         raise HTTPException(status_code=400, detail="Must specify check_id or check_type")
     
-    # Run the check
-    result = await run_check(check_type, threshold)
     
-    # Record in database if configured check
-    if check:
-        check_run = CheckRun(
-            health_check_id=check.id,
-            status=CheckStatus.PASSED if result.passed else CheckStatus.FAILED,
-            result_value=result.result_value,
-            result_details=json.dumps(result.details) if result.details else None,
-            error_message=result.error,
-            started_at=result.timestamp,
-            completed_at=datetime.utcnow()
-        )
-        db.add(check_run)
-        db.commit()
+    # Run the check via helper to ensure persistence and incident creation
+    result_data = await _execute_and_record_check(db, check)
     
-    # Record metrics
-    record_health_check_run(
-        check_name=check_name,
-        check_type=check_type,
-        status="passed" if result.passed else "failed",
-        latency_ms=result.latency_ms,
-        result_value=result.result_value
-    )
+    # Record metrics (redundant but keeping for consistency if needed, or _execute handles it)
+    # The helper handles DB, let's let it handle everything.
     
     return RunCheckResponse(
-        check_name=check_name,
-        check_type=check_type,
-        passed=result.passed,
-        result_value=result.result_value,
-        details=result.details,
-        error=result.error,
-        latency_ms=result.latency_ms,
-        timestamp=result.timestamp.isoformat()
+        check_name=result_data["check_name"],
+        check_type=result_data["check_type"],
+        passed=result_data["passed"],
+        result_value=result_data["result_value"],
+        details=result_data["details"],
+        error=result_data["error"],
+        latency_ms=result_data["latency_ms"],
+        timestamp=result_data["timestamp"]
     )
 
 
@@ -194,13 +175,14 @@ async def run_all_health_checks(db: Session = Depends(get_db)):
     
     results = []
     for check in checks:
-        result = await run_check(check.check_type.value, check.threshold_value)
+        # Use helper to persist run and create incident
+        res = await _execute_and_record_check(db, check)
         results.append({
             "check_id": check.id,
             "check_name": check.name,
-            "passed": result.passed,
-            "result_value": result.result_value,
-            "error": result.error
+            "passed": res["passed"],
+            "result_value": res["result_value"],
+            "error": res["error"]
         })
     
     return {
@@ -208,6 +190,79 @@ async def run_all_health_checks(db: Session = Depends(get_db)):
         "passed": sum(1 for r in results if r["passed"]),
         "failed": sum(1 for r in results if not r["passed"]),
         "results": results
+    }
+
+
+async def _execute_and_record_check(db: Session, check: HealthCheck) -> dict:
+    """
+    Helper to run a check, record history, and create incident on failure.
+    """
+    import json
+    
+    # Run service
+    result = await run_check(check.check_type.value, check.threshold_value)
+    
+    # Record Run
+    check_run = CheckRun(
+        health_check_id=check.id,
+        status=CheckStatus.PASSED if result.passed else CheckStatus.FAILED,
+        result_value=result.result_value,
+        result_details=json.dumps(result.details) if result.details else None,
+        error_message=result.error,
+        started_at=result.timestamp,
+        completed_at=datetime.utcnow()
+    )
+    db.add(check_run)
+    db.commit()
+    db.refresh(check_run)
+    
+    # Create Incident if failed
+    if not result.passed:
+        # Check for existing open incident for this check?
+        # For demo simplicity, always create new or update unique one. 
+        # Let's create new for now to ensure visibility.
+        
+        from app.db import Incident, IncidentSeverity, IncidentStatus
+        
+        severity = IncidentSeverity.MEDIUM
+        if "latency" in check.check_type.value:
+            severity = IncidentSeverity.HIGH
+        elif "correctness" in check.check_type.value:
+            severity = IncidentSeverity.CRITICAL
+            
+        incident = Incident(
+            title=f"Health Check Failed: {check.name}",
+            description=f"Check failed with value {result.result_value} (threshold: {check.threshold_value}). {result.error or ''}",
+            severity=severity,
+            status=IncidentStatus.OPEN,
+            check_run_id=check_run.id,
+            triggered_at=datetime.utcnow()
+        )
+        db.add(incident)
+        db.commit()
+        
+        # Record incident metric
+        from app.metrics import record_incident
+        record_incident(severity.value)
+
+    # Record run metric
+    record_health_check_run(
+        check_name=check.name,
+        check_type=check.check_type.value,
+        status="passed" if result.passed else "failed",
+        latency_ms=result.latency_ms,
+        result_value=result.result_value
+    )
+    
+    return {
+        "check_name": check.name,
+        "check_type": check.check_type.value,
+        "passed": result.passed,
+        "result_value": result.result_value,
+        "details": result.details,
+        "error": result.error,
+        "latency_ms": result.latency_ms,
+        "timestamp": result.timestamp.isoformat()
     }
 
 
